@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Network Security Scanner & Firewall Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #f3f6f9;
+      --bg-deep: #d9e5ef;
+      --surface: rgba(255, 255, 255, 0.88);
+      --surface-solid: #ffffff;
+      --line: #c8d3de;
+      --text: #152232;
+      --muted: #4a6076;
+      --primary: #0b6e4f;
+      --primary-strong: #07553d;
+      --alert: #c81e1e;
+      --warn: #b7791f;
+      --ok: #1a7f37;
+      --deny: #b42318;
+      --allow: #0b6e4f;
+      --radius: 14px;
+      --shadow: 0 18px 35px rgba(21, 34, 50, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Chivo", sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 10% 18%, rgba(11, 110, 79, 0.13), transparent 28%),
+        radial-gradient(circle at 84% 12%, rgba(30, 91, 200, 0.1), transparent 30%),
+        linear-gradient(165deg, var(--bg) 0%, var(--bg-deep) 100%);
+      padding: 18px;
+    }
+
+    .grid {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(4px);
+      padding: 16px;
+      animation: reveal 0.48s ease both;
+    }
+
+    .hero {
+      border-left: 5px solid var(--primary);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.35rem, 2.6vw, 2.2rem);
+      letter-spacing: 0.02em;
+      line-height: 1.2;
+    }
+
+    .sub {
+      margin: 8px 0 0;
+      color: var(--muted);
+      max-width: 72ch;
+    }
+
+    .inputs {
+      display: grid;
+      grid-template-columns: 1.2fr 0.9fr 0.8fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .label {
+      display: block;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      font: inherit;
+      border-radius: 10px;
+      border: 1px solid #b5c3d2;
+      min-height: 42px;
+      padding: 9px 12px;
+      color: var(--text);
+      background: #ffffff;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(11, 110, 79, 0.18);
+    }
+
+    button {
+      cursor: pointer;
+      border: 0;
+      font-weight: 700;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+      color: #ffffff;
+    }
+
+    .btn-secondary {
+      background: #eef4f9;
+      color: #1d3046;
+      border: 1px solid #b5c3d2;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .status {
+      margin-top: 10px;
+      min-height: 22px;
+      font-weight: 600;
+      color: #1d3046;
+    }
+
+    .status.error {
+      color: var(--alert);
+    }
+
+    .status.ok {
+      color: var(--ok);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--surface-solid);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 640px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e4ebf2;
+      text-align: left;
+      font-size: 0.92rem;
+    }
+
+    th {
+      background: #edf3f8;
+      color: #1b2f45;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-family: "IBM Plex Mono", monospace;
+      font-weight: 500;
+    }
+
+    .pill-open {
+      background: rgba(11, 110, 79, 0.14);
+      color: #0b6e4f;
+    }
+
+    .pill-closed {
+      background: rgba(180, 35, 24, 0.12);
+      color: #8f1d14;
+    }
+
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 1.06rem;
+      letter-spacing: 0.01em;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .rule-creator {
+      display: grid;
+      grid-template-columns: 0.8fr 1fr 0.8fr 0.8fr 0.65fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .muted {
+      color: var(--muted);
+      margin: 6px 0 0;
+      font-size: 0.9rem;
+    }
+
+    .vuln-list {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 7px;
+    }
+
+    .vuln-list li {
+      color: #452f11;
+      background: rgba(183, 121, 31, 0.14);
+      border: 1px solid rgba(183, 121, 31, 0.38);
+      border-radius: 10px;
+      padding: 8px 10px;
+      list-style: decimal;
+    }
+
+    .flow-summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .summary-box {
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #ffffff;
+      padding: 9px 11px;
+      min-width: 120px;
+      font-size: 0.9rem;
+    }
+
+    .flow-grid {
+      display: grid;
+      gap: 9px;
+      max-height: 340px;
+      overflow: auto;
+      padding-right: 3px;
+    }
+
+    .flow-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid #d7e2ec;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 10px;
+      animation: reveal 0.34s ease both;
+    }
+
+    .traffic {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.85rem;
+      color: #1d3046;
+      overflow-wrap: anywhere;
+    }
+
+    .decision {
+      font-weight: 800;
+      font-size: 0.78rem;
+      border-radius: 999px;
+      padding: 4px 10px;
+      letter-spacing: 0.06em;
+    }
+
+    .decision.allow {
+      color: #0b6e4f;
+      background: rgba(11, 110, 79, 0.14);
+    }
+
+    .decision.deny {
+      color: #8f1d14;
+      background: rgba(180, 35, 24, 0.14);
+    }
+
+    .match {
+      font-size: 0.78rem;
+      color: #435a70;
+      max-width: 38ch;
+    }
+
+    .arrow {
+      width: 28px;
+      height: 2px;
+      background: linear-gradient(90deg, #7f95aa, #2f475f);
+      position: relative;
+    }
+
+    .arrow::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: -4px;
+      width: 0;
+      height: 0;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      border-left: 8px solid #2f475f;
+    }
+
+    .tiny {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    @keyframes reveal {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 980px) {
+      .inputs {
+        grid-template-columns: 1fr;
+      }
+
+      .rule-creator {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-row {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="grid">
+    <section class="panel hero">
+      <h1>Network Security Scanner & Firewall Visualizer</h1>
+      <p class="sub">
+        Scan a host for open ports and services, then test how chained firewall rules allow or block traffic.
+      </p>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Scanner</h2>
+      <div class="inputs">
+        <div>
+          <label class="label" for="targetInput">Target IP / Hostname</label>
+          <input id="targetInput" type="text" placeholder="Example: 127.0.0.1 or scanme.nmap.org" />
+        </div>
+        <div>
+          <label class="label" for="scanTypeSelect">Scan Type</label>
+          <select id="scanTypeSelect">
+            <option value="">Select scan type</option>
+            <option value="tcp_syn">TCP SYN</option>
+            <option value="udp">UDP</option>
+            <option value="full_connect">Full Connect</option>
+          </select>
+        </div>
+        <div>
+          <label class="label" for="portsInput">Port Range</label>
+          <input id="portsInput" type="text" value="1-1024" placeholder="Example: 1-1024,80,443" />
+        </div>
+        <div>
+          <label class="label">Action</label>
+          <button id="scanButton" class="btn-primary" type="button">Start Scan</button>
+        </div>
+      </div>
+      <div id="scanStatus" class="status"></div>
+      <p class="tiny">If Nmap is unavailable, Full Connect scan uses a socket-based fallback.</p>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Scan Results</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>IP</th>
+              <th>Port</th>
+              <th>Protocol</th>
+              <th>Service</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="scanResultsBody">
+            <tr>
+              <td colspan="5" class="muted">No scan results yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="section-title" style="margin-top: 14px;">Possible Vulnerabilities</h3>
+      <ul id="vulnerabilityList" class="vuln-list">
+        <li>No findings yet. Run a scan to analyze exposed services.</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Firewall Rule Simulator</h2>
+      <div class="rule-creator">
+        <div>
+          <label class="label" for="ruleAction">Action</label>
+          <select id="ruleAction">
+            <option value="ALLOW">ALLOW</option>
+            <option value="DENY">DENY</option>
+          </select>
+        </div>
+        <div>
+          <label class="label" for="ruleIp">IP / CIDR / any</label>
+          <input id="ruleIp" type="text" value="any" placeholder="any, 192.168.1.25, 10.0.0.0/24" />
+        </div>
+        <div>
+          <label class="label" for="rulePort">Port / Range / any</label>
+          <input id="rulePort" type="text" value="any" placeholder="any, 80, 1000-2000" />
+        </div>
+        <div>
+          <label class="label" for="ruleProtocol">Protocol</label>
+          <select id="ruleProtocol">
+            <option value="ANY">ANY</option>
+            <option value="TCP">TCP</option>
+            <option value="UDP">UDP</option>
+          </select>
+        </div>
+        <div>
+          <label class="label" for="rulePriority">Priority</label>
+          <input id="rulePriority" type="number" min="1" value="1" />
+        </div>
+        <div>
+          <label class="label">Action</label>
+          <button id="addRuleButton" class="btn-secondary" type="button">Add Rule</button>
+        </div>
+      </div>
+      <p class="muted">Lower priority number is evaluated first. First matching rule decides the outcome.</p>
+      <div id="ruleStatus" class="status"></div>
+
+      <div class="table-wrap" style="margin-top: 10px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Priority</th>
+              <th>Action</th>
+              <th>IP</th>
+              <th>Port</th>
+              <th>Protocol</th>
+              <th>Remove</th>
+            </tr>
+          </thead>
+          <tbody id="ruleTableBody">
+            <tr>
+              <td colspan="6" class="muted">No firewall rules configured.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <button id="simulateButton" class="btn-primary" type="button">Simulate Rules Against Scan Traffic</button>
+        <button id="clearRulesButton" class="btn-secondary" type="button">Clear Rules</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Traffic Flow Visualization</h2>
+      <div id="flowSummary" class="flow-summary"></div>
+      <div id="flowGrid" class="flow-grid">
+        <div class="muted">Simulation output will appear here after scan + rule evaluation.</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const targetInput = document.getElementById("targetInput");
+    const scanTypeSelect = document.getElementById("scanTypeSelect");
+    const portsInput = document.getElementById("portsInput");
+    const scanButton = document.getElementById("scanButton");
+    const scanStatus = document.getElementById("scanStatus");
+    const scanResultsBody = document.getElementById("scanResultsBody");
+    const vulnerabilityList = document.getElementById("vulnerabilityList");
+
+    const ruleAction = document.getElementById("ruleAction");
+    const ruleIp = document.getElementById("ruleIp");
+    const rulePort = document.getElementById("rulePort");
+    const ruleProtocol = document.getElementById("ruleProtocol");
+    const rulePriority = document.getElementById("rulePriority");
+    const addRuleButton = document.getElementById("addRuleButton");
+    const clearRulesButton = document.getElementById("clearRulesButton");
+    const simulateButton = document.getElementById("simulateButton");
+    const ruleTableBody = document.getElementById("ruleTableBody");
+    const ruleStatus = document.getElementById("ruleStatus");
+
+    const flowSummary = document.getElementById("flowSummary");
+    const flowGrid = document.getElementById("flowGrid");
+
+    let scanResults = [];
+    let firewallRules = [];
+
+    function setStatus(element, message, variant = "") {
+      element.textContent = message;
+      element.className = `status ${variant}`.trim();
+    }
+
+    function renderScanResults(results) {
+      scanResultsBody.innerHTML = "";
+
+      if (!results.length) {
+        const row = document.createElement("tr");
+        row.innerHTML = '<td colspan="5" class="muted">No ports found in this scan output.</td>';
+        scanResultsBody.appendChild(row);
+        return;
+      }
+
+      results.forEach((entry) => {
+        const row = document.createElement("tr");
+
+        const statusClass = String(entry.status).toLowerCase() === "open" ? "pill-open" : "pill-closed";
+        row.innerHTML = `
+          <td>${entry.ip}</td>
+          <td>${entry.port}</td>
+          <td>${entry.protocol}</td>
+          <td>${entry.service}</td>
+          <td><span class="pill ${statusClass}">${entry.status}</span></td>
+        `;
+
+        scanResultsBody.appendChild(row);
+      });
+    }
+
+    function renderVulnerabilities(vulnerabilities) {
+      vulnerabilityList.innerHTML = "";
+
+      if (!vulnerabilities.length) {
+        const listItem = document.createElement("li");
+        listItem.textContent = "No obvious high-risk ports from the built-in rule set.";
+        vulnerabilityList.appendChild(listItem);
+        return;
+      }
+
+      vulnerabilities.forEach((item) => {
+        const listItem = document.createElement("li");
+        listItem.textContent = `${item.ip}:${item.port} (${item.service}) - ${item.risk}`;
+        vulnerabilityList.appendChild(listItem);
+      });
+    }
+
+    function renderRules() {
+      ruleTableBody.innerHTML = "";
+
+      if (!firewallRules.length) {
+        const row = document.createElement("tr");
+        row.innerHTML = '<td colspan="6" class="muted">No firewall rules configured.</td>';
+        ruleTableBody.appendChild(row);
+        return;
+      }
+
+      const sortedRules = [...firewallRules].sort((a, b) => a.priority - b.priority);
+
+      sortedRules.forEach((rule, index) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${rule.priority}</td>
+          <td>${rule.action}</td>
+          <td>${rule.ip}</td>
+          <td>${rule.port}</td>
+          <td>${rule.protocol}</td>
+          <td><button data-rule-index="${index}" class="btn-secondary" style="min-height: 30px; padding: 4px 10px;">Delete</button></td>
+        `;
+        ruleTableBody.appendChild(row);
+      });
+
+      ruleTableBody.querySelectorAll("button[data-rule-index]").forEach((btn) => {
+        btn.addEventListener("click", (event) => {
+          const indexToDelete = Number(event.target.getAttribute("data-rule-index"));
+          const sorted = [...firewallRules].sort((a, b) => a.priority - b.priority);
+          const ruleToDelete = sorted[indexToDelete];
+          firewallRules = firewallRules.filter((rule) => rule !== ruleToDelete);
+          renderRules();
+          setStatus(ruleStatus, "Rule removed.", "ok");
+        });
+      });
+    }
+
+    function renderFlow(decisions, summary) {
+      flowSummary.innerHTML = "";
+      flowGrid.innerHTML = "";
+
+      const totalBox = document.createElement("div");
+      totalBox.className = "summary-box";
+      totalBox.textContent = `Total Traffic: ${summary.total}`;
+      flowSummary.appendChild(totalBox);
+
+      const allowBox = document.createElement("div");
+      allowBox.className = "summary-box";
+      allowBox.textContent = `Allowed: ${summary.allowed}`;
+      flowSummary.appendChild(allowBox);
+
+      const blockBox = document.createElement("div");
+      blockBox.className = "summary-box";
+      blockBox.textContent = `Blocked: ${summary.blocked}`;
+      flowSummary.appendChild(blockBox);
+
+      if (!decisions.length) {
+        const empty = document.createElement("div");
+        empty.className = "muted";
+        empty.textContent = "No traffic items to visualize.";
+        flowGrid.appendChild(empty);
+        return;
+      }
+
+      decisions.forEach((decision) => {
+        const row = document.createElement("div");
+        row.className = "flow-row";
+
+        const traffic = document.createElement("div");
+        traffic.className = "traffic";
+        traffic.textContent = `${decision.ip}:${decision.port}/${decision.protocol}`;
+
+        const arrow = document.createElement("div");
+        arrow.className = "arrow";
+
+        const resultWrap = document.createElement("div");
+
+        const result = document.createElement("div");
+        const lowerDecision = String(decision.decision).toLowerCase();
+        result.className = `decision ${lowerDecision === "deny" ? "deny" : "allow"}`;
+        result.textContent = lowerDecision === "deny" ? "BLOCKED" : "ALLOWED";
+
+        const match = document.createElement("div");
+        match.className = "match";
+        if (decision.matchedRule) {
+          match.textContent = `Matched Rule: #${decision.matchedRule.id} | ${decision.matchedRule.action} ${decision.matchedRule.protocol} ${decision.matchedRule.ip}:${decision.matchedRule.port} (P${decision.matchedRule.priority})`;
+        } else {
+          match.textContent = "Matched Rule: none (default ALLOW)";
+        }
+
+        resultWrap.appendChild(result);
+        resultWrap.appendChild(match);
+
+        row.appendChild(traffic);
+        row.appendChild(arrow);
+        row.appendChild(resultWrap);
+
+        flowGrid.appendChild(row);
+      });
+    }
+
+    async function startScan() {
+      setStatus(scanStatus, "", "");
+      const target = targetInput.value.trim();
+      const scanType = scanTypeSelect.value;
+      const ports = portsInput.value.trim();
+
+      if (!target) {
+        setStatus(scanStatus, "Please provide a target IP or hostname.", "error");
+        return;
+      }
+
+      if (!scanType) {
+        setStatus(scanStatus, "Please select a scan type.", "error");
+        return;
+      }
+
+      setStatus(scanStatus, "Scanning in progress...", "");
+      scanButton.disabled = true;
+
+      try {
+        const response = await fetch("/api/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target, scanType, ports }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Scan failed.");
+        }
+
+        scanResults = data.results || [];
+        renderScanResults(scanResults);
+        renderVulnerabilities(data.vulnerabilities || []);
+
+        setStatus(
+          scanStatus,
+          `Scan finished: ${scanResults.length} records from ${data.target} (${data.scanType}).`,
+          "ok"
+        );
+      } catch (error) {
+        scanResults = [];
+        renderScanResults(scanResults);
+        renderVulnerabilities([]);
+        renderFlow([], { total: 0, allowed: 0, blocked: 0 });
+        setStatus(scanStatus, error.message || "Scan failed.", "error");
+      } finally {
+        scanButton.disabled = false;
+      }
+    }
+
+    function addRule() {
+      const action = ruleAction.value;
+      const ip = ruleIp.value.trim() || "any";
+      const port = rulePort.value.trim() || "any";
+      const protocol = ruleProtocol.value;
+      const priority = Number.parseInt(rulePriority.value, 10);
+
+      if (Number.isNaN(priority) || priority < 1) {
+        setStatus(ruleStatus, "Priority must be a positive integer.", "error");
+        return;
+      }
+
+      firewallRules.push({ action, ip, port, protocol, priority });
+      renderRules();
+      setStatus(ruleStatus, "Rule added.", "ok");
+    }
+
+    async function simulateRules() {
+      if (!scanResults.length) {
+        setStatus(ruleStatus, "Run a scan before firewall simulation.", "error");
+        return;
+      }
+
+      setStatus(ruleStatus, "Evaluating traffic against firewall rules...", "");
+
+      try {
+        const traffic = scanResults.map((item) => ({
+          ip: item.ip,
+          port: item.port,
+          protocol: item.protocol,
+        }));
+
+        const response = await fetch("/api/firewall/evaluate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rules: firewallRules, traffic }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Simulation failed.");
+        }
+
+        firewallRules = data.rules;
+        renderRules();
+        renderFlow(data.decisions, data.summary);
+        setStatus(ruleStatus, "Simulation complete.", "ok");
+      } catch (error) {
+        setStatus(ruleStatus, error.message || "Simulation failed.", "error");
+      }
+    }
+
+    function clearRules() {
+      firewallRules = [];
+      renderRules();
+      renderFlow([], { total: 0, allowed: 0, blocked: 0 });
+      setStatus(ruleStatus, "All firewall rules cleared.", "ok");
+    }
+
+    scanButton.addEventListener("click", startScan);
+    addRuleButton.addEventListener("click", addRule);
+    simulateButton.addEventListener("click", simulateRules);
+    clearRulesButton.addEventListener("click", clearRules);
+
+    renderRules();
+  </script>
+</body>
+</html>

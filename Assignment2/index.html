@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web-Based Text Encryption Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Grotesk:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+  <style>
+    :root {
+      --paper: #f7f3eb;
+      --ink: #1f2a37;
+      --ink-soft: #4b5563;
+      --accent: #0f766e;
+      --accent-strong: #115e59;
+      --highlight: #f59e0b;
+      --panel: rgba(255, 255, 255, 0.88);
+      --panel-border: rgba(31, 42, 55, 0.12);
+      --error: #b42318;
+      --radius: 16px;
+      --shadow: 0 16px 40px rgba(31, 42, 55, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 15%, rgba(245, 158, 11, 0.2), transparent 30%),
+        radial-gradient(circle at 85% 20%, rgba(15, 118, 110, 0.18), transparent 32%),
+        linear-gradient(160deg, #fdfbf7 0%, #f7f3eb 55%, #f1ece2 100%);
+      padding: 28px 16px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        -25deg,
+        rgba(31, 42, 55, 0.02),
+        rgba(31, 42, 55, 0.02) 8px,
+        transparent 8px,
+        transparent 22px
+      );
+    }
+
+    .app-shell {
+      width: min(920px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(4px);
+    }
+
+    .hero {
+      padding: 22px 24px;
+      border-left: 6px solid var(--highlight);
+      animation: rise 0.6s ease both;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: "DM Serif Display", serif;
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      line-height: 1.12;
+      letter-spacing: 0.2px;
+    }
+
+    .hero p {
+      margin: 10px 0 0;
+      color: var(--ink-soft);
+      font-size: 0.98rem;
+      max-width: 65ch;
+    }
+
+    .panel {
+      padding: 20px;
+      animation: rise 0.6s ease both;
+    }
+
+    .delay-1 {
+      animation-delay: 0.08s;
+    }
+
+    .delay-2 {
+      animation-delay: 0.16s;
+    }
+
+    .field {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 6px;
+    }
+
+    textarea,
+    select,
+    input {
+      width: 100%;
+      border: 1px solid rgba(31, 42, 55, 0.24);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font: inherit;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.94);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    textarea {
+      min-height: 136px;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    textarea[readonly] {
+      background: rgba(248, 250, 252, 0.95);
+    }
+
+    textarea:focus,
+    select:focus,
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
+    }
+
+    .options {
+      display: none;
+      margin-bottom: 14px;
+      background: rgba(15, 118, 110, 0.06);
+      border: 1px solid rgba(15, 118, 110, 0.22);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .options.active {
+      display: block;
+      animation: rise 0.35s ease both;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.12s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    #encryptButton {
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: #ffffff;
+      box-shadow: 0 10px 20px rgba(15, 118, 110, 0.26);
+    }
+
+    #clearButton {
+      background: #ffffff;
+      color: var(--ink);
+      border: 1px solid rgba(31, 42, 55, 0.24);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    #errorMessage {
+      min-height: 20px;
+      margin-top: 10px;
+      color: var(--error);
+      font-weight: 600;
+    }
+
+    .footnote {
+      color: var(--ink-soft);
+      font-size: 0.86rem;
+      margin: 0;
+    }
+
+    @keyframes rise {
+      from {
+        transform: translateY(16px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .hero,
+      .panel {
+        padding: 16px;
+      }
+
+      .actions {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero">
+      <h1>Web-Based Text Encryption Tool</h1>
+      <p>
+        Enter text, select an algorithm, and generate ciphertext instantly. This page includes
+        Caesar Cipher, AES, and Base64 encryption methods.
+      </p>
+    </section>
+
+    <section class="panel delay-1">
+      <div class="field">
+        <label for="plainText">Plain Text</label>
+        <textarea id="plainText" placeholder="Type or paste the text you want to encrypt..."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="algorithm">Encryption Algorithm</label>
+        <select id="algorithm">
+          <option value="">Select an algorithm</option>
+          <option value="caesar">Caesar Cipher</option>
+          <option value="aes">AES</option>
+          <option value="base64">Base64</option>
+        </select>
+      </div>
+
+      <div id="caesarOptions" class="options">
+        <div class="field" style="margin-bottom: 0;">
+          <label for="caesarShift">Caesar Shift Value</label>
+          <input id="caesarShift" type="number" min="-25" max="25" value="3" />
+        </div>
+      </div>
+
+      <div id="aesOptions" class="options">
+        <div class="field" style="margin-bottom: 0;">
+          <label for="aesKey">AES Secret Key</label>
+          <input id="aesKey" type="password" placeholder="Enter a secret key" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="encryptButton" type="button">Encrypt</button>
+        <button id="clearButton" type="button">Clear</button>
+      </div>
+      <div id="errorMessage"></div>
+    </section>
+
+    <section class="panel delay-2">
+      <div class="field" style="margin-bottom: 8px;">
+        <label for="cipherText">Cipher Text</label>
+        <textarea id="cipherText" readonly placeholder="Encrypted output will appear here..."></textarea>
+      </div>
+      <p class="footnote">Note: AES output is displayed as a ciphertext string from CryptoJS.</p>
+    </section>
+  </main>
+
+  <script>
+    const plainTextInput = document.getElementById("plainText");
+    const algorithmSelect = document.getElementById("algorithm");
+    const caesarOptions = document.getElementById("caesarOptions");
+    const aesOptions = document.getElementById("aesOptions");
+    const caesarShiftInput = document.getElementById("caesarShift");
+    const aesKeyInput = document.getElementById("aesKey");
+    const cipherTextOutput = document.getElementById("cipherText");
+    const encryptButton = document.getElementById("encryptButton");
+    const clearButton = document.getElementById("clearButton");
+    const errorMessage = document.getElementById("errorMessage");
+
+    function setError(message) {
+      errorMessage.textContent = message;
+    }
+
+    function clearError() {
+      errorMessage.textContent = "";
+    }
+
+    function toggleAlgorithmOptions() {
+      caesarOptions.classList.remove("active");
+      aesOptions.classList.remove("active");
+
+      if (algorithmSelect.value === "caesar") {
+        caesarOptions.classList.add("active");
+      }
+      if (algorithmSelect.value === "aes") {
+        aesOptions.classList.add("active");
+      }
+    }
+
+    function caesarEncrypt(text, shift) {
+      const normalizedShift = ((shift % 26) + 26) % 26;
+      return text.replace(/[a-z]/gi, (char) => {
+        const code = char.charCodeAt(0);
+        const isUpper = code >= 65 && code <= 90;
+        const base = isUpper ? 65 : 97;
+        return String.fromCharCode(((code - base + normalizedShift) % 26) + base);
+      });
+    }
+
+    function encodeBase64Utf8(text) {
+      const bytes = new TextEncoder().encode(text);
+      let binary = "";
+      bytes.forEach((value) => {
+        binary += String.fromCharCode(value);
+      });
+      return btoa(binary);
+    }
+
+    function validateInputs(text, method) {
+      if (!text.trim()) {
+        return "Please enter plain text before encrypting.";
+      }
+      if (!method) {
+        return "Please select an encryption algorithm.";
+      }
+      if (method === "aes" && !aesKeyInput.value.trim()) {
+        return "Please enter an AES secret key.";
+      }
+      return "";
+    }
+
+    function encryptText() {
+      clearError();
+      const plainText = plainTextInput.value;
+      const method = algorithmSelect.value;
+      const validationMessage = validateInputs(plainText, method);
+
+      if (validationMessage) {
+        cipherTextOutput.value = "";
+        setError(validationMessage);
+        return;
+      }
+
+      try {
+        let encrypted = "";
+
+        if (method === "caesar") {
+          const shiftValue = Number.parseInt(caesarShiftInput.value, 10);
+          if (Number.isNaN(shiftValue)) {
+            setError("Please provide a valid shift value for Caesar Cipher.");
+            return;
+          }
+          encrypted = caesarEncrypt(plainText, shiftValue);
+        }
+
+        if (method === "aes") {
+          if (!window.CryptoJS || !window.CryptoJS.AES) {
+            throw new Error("AES library is not available.");
+          }
+          encrypted = window.CryptoJS.AES.encrypt(plainText, aesKeyInput.value).toString();
+        }
+
+        if (method === "base64") {
+          encrypted = encodeBase64Utf8(plainText);
+        }
+
+        cipherTextOutput.value = encrypted;
+      } catch (error) {
+        cipherTextOutput.value = "";
+        setError("Encryption failed. Please try again.");
+        console.error(error);
+      }
+    }
+
+    function clearAll() {
+      plainTextInput.value = "";
+      cipherTextOutput.value = "";
+      aesKeyInput.value = "";
+      algorithmSelect.value = "";
+      caesarShiftInput.value = "3";
+      toggleAlgorithmOptions();
+      clearError();
+    }
+
+    algorithmSelect.addEventListener("change", () => {
+      toggleAlgorithmOptions();
+      clearError();
+    });
+
+    encryptButton.addEventListener("click", encryptText);
+    clearButton.addEventListener("click", clearAll);
+
+    toggleAlgorithmOptions();
+  </script>
+</body>
+</html>
